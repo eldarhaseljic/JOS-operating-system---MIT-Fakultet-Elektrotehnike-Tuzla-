@@ -40,7 +40,12 @@ i386_init(void)
       cprintf("H%x Wo%s", 57616, &i);
       cprintf("x%d y=%d", 3);
   */
+
 	cprintf("6828 decimal is %o octal!\n", 6828);
+	
+  //Binary test
+  //cprintf("-5 decimal is %b binary!\n", -5);
+  //cprintf("5 decimal is %b binary!\n", 5);
 
 	// Test the stack backtrace function (lab 1 only)
 	test_backtrace(5);
