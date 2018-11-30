@@ -54,6 +54,7 @@ i386_detect_memory(void)
 
 	cprintf("Physical memory: %uK available, base = %uK, extended = %uK\n",
 		totalmem, basemem, totalmem - basemem);
+  cprintf("KERNBASE %uK", KERNBASE);
 }
 
 
@@ -102,8 +103,21 @@ boot_alloc(uint32_t n)
 	// to a multiple of PGSIZE.
 	//
 	// LAB 2: Your code here.
+  
+  if(n>0)
+    {
+      result = nextfree;
+      nextfree = ROUNDUP ((char *)nextfree+n, PGSIZE); 
+    if ((uint32_t)nextfree <= KERNBASE || (uint32_t)nextfree >= 0xf0400000)
+        panic("Boot_alloc():Out of memory\n"); 
+      return result;
+    }
+    else if(n==0)  
+      return nextfree;
+    else  
+      panic("Out of range!\n");
 
-	return NULL;
+   // return NULL;
 }
 
 // Set up a two-level page table:
