@@ -141,7 +141,7 @@ mem_init(void)
 	size_t n;
 
 	// Find out how much memory the machine has (npages & npages_basemem).
-	i386_detect_memory();
+	i386_detect_memory(); 
 
 	// Remove this line when you're ready to test this function.
 	//panic("mem_init: This function is not finished\n");
@@ -386,7 +386,31 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	return NULL;
+  uint32_t dirindex = PDX(va);   //Directory index
+  uint32_t tabindex = PTX(va);   //Table index
+  pte_t * tmp;
+
+  if(!(pgdir[dirindex] & PTE_P))   //PTE_P -> P bit
+  {
+    if(create != 0)
+    {
+      struct PageInfo * temp;
+      temp = page_alloc(ALLOC_ZERO);
+      if(temp)
+      {
+        temp -> pp_ref++;
+        pgdir[dirindex] = page2pa(temp) | PTE_P | PTE_U | PTE_W;
+        // PTE_P -> P BIT
+        // PTE_U -> USER BIT
+        // PTE_W -> WRITABLE BIT
+      }
+      else return NULL;
+    }
+    else return NULL;
+  }
+  tmp = KADDR(PTE_ADDR(pgdir[dirindex]));
+
+  return tmp + tabindex;
 }
 
 //
@@ -404,6 +428,8 @@ static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
+  
+  
 }
 
 //
@@ -435,7 +461,18 @@ int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
 	// Fill this function in
-	return 0;
+  pte_t * temp = pgdir_walk(pgdir, va,1);
+  
+  if(temp == NULL)
+    return -E_NO_MEM;
+  
+  pp -> pp_ref++;
+
+  if(*temp & PTE_P)
+    page_remove(pgdir,va);
+ 
+  *temp = page2pa(pp) | perm | PTE_P;
+ 	return 0;
 }
 
 //
@@ -453,7 +490,15 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
-	return NULL;
+  
+  pte_t * temp = pgdir_walk(pgdir, va, 0x0);
+  if(pte_store != 0)
+  {
+    if((*temp & PTE_P) == 0) return NULL;
+    if(temp == 0) return NULL;
+    *pte_store = temp;
+  }
+  return pa2page(PTE_ADDR(*temp));
 }
 
 //
@@ -475,6 +520,16 @@ void
 page_remove(pde_t *pgdir, void *va)
 {
 	// Fill this function in
+  pte_t * temp;
+  struct PageInfo * remove_page;
+  remove_page = page_lookup(pgdir, va, &temp);
+    
+    if(remove_page != NULL)
+    {
+      *temp = 0;
+      page_decref(remove_page);
+      tlb_invalidate(pgdir,va);
+    }
 }
 
 //
