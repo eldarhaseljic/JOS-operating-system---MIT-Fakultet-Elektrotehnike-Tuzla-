@@ -428,8 +428,19 @@ static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
-  
-  
+  pte_t * temp;
+  uint32_t i=0;;
+  while(i < size/PGSIZE)
+  { 
+    temp = pgdir_walk(pgdir, (void *) va , 1);
+    if(temp == NULL)
+      panic("boot_map_region(): Out of memory\n");
+    *temp = pa | perm | PTE_P;
+    
+    ++i;
+    va += PGSIZE;
+    pa += PGSIZE;
+  }
 }
 
 //
