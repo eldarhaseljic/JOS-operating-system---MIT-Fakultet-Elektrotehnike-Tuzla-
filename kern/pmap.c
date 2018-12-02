@@ -40,7 +40,7 @@ i386_detect_memory(void)
 	extmem = nvram_read(NVRAM_EXTLO);
   ext16mem = nvram_read(NVRAM_EXT16LO) * 64;
   
-  // cprintf("%u\n", basemem);  
+  //cprintf("%u\n", basemem);  
   //cprintf("%u\n", extmem);
   //cprintf("%u\n", ext16mem);
 	
@@ -122,7 +122,7 @@ boot_alloc(uint32_t n)
     else  
       panic("Out of range!\n");
 
-   // return NULL;
+  // return NULL;
 }
 
 // Set up a two-level page table:
@@ -134,6 +134,7 @@ boot_alloc(uint32_t n)
 //
 // From UTOP to ULIM, the user is allowed to read but not write.
 // Above ULIM the user cannot read or write.
+
 void
 mem_init(void)
 {
@@ -167,10 +168,10 @@ mem_init(void)
 	// array.  'npages' is the number of physical pages in memory.  Use memset
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
-    
-  uint32_t size = npages * sizeof(struct PageInfo);
-  pages = (struct PageInfo *) boot_alloc(size);
-  memset(pages, 0, size);
+
+    uint32_t size_pages = npages * sizeof(struct PageInfo);
+    pages = (struct PageInfo *) boot_alloc(size_pages);
+    memset(pages, 0, size_pages);
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -194,8 +195,11 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
-
-	//////////////////////////////////////////////////////////////////////
+  
+    size_t size = ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE);
+    boot_map_region(kern_pgdir, UPAGES , size,PADDR(pages), PTE_U | PTE_P);
+	
+  //////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
 	// We consider the entire range from [KSTACKTOP-PTSIZE, KSTACKTOP)
@@ -207,6 +211,9 @@ mem_init(void)
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
 
+    uintptr_t start = KSTACKTOP - KSTKSIZE;
+    boot_map_region(kern_pgdir, start, KSTKSIZE, PADDR(bootstack) , PTE_P | PTE_W);
+
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
 	// Ie.  the VA range [KERNBASE, 2^32) should map to
@@ -215,6 +222,9 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
+  
+    size = ~0xffffffff - KERNBASE + 1;
+    boot_map_region(kern_pgdir, KERNBASE, size, 0 , PTE_P | PTE_W );
 
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
@@ -288,9 +298,9 @@ page_init(void)
   }
 
   uint32_t size = sizeof(struct PageInfo) * npages;
-  uint32_t med = (uint32_t)ROUNDUP(((char*)pages) + size - 0xf0000000, PGSIZE)/PGSIZE;
+  uint32_t mid = (uint32_t)ROUNDUP(((char*)pages) + size - 0xf0000000, PGSIZE)/PGSIZE;
   
-  for (i = med; i < npages; i++) 
+  for (i = mid; i < npages; i++) 
   {
     pages[i].pp_ref = 0;
     pages[i].pp_link = page_free_list;
