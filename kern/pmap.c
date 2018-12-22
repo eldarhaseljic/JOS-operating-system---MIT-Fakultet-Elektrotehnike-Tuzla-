@@ -113,8 +113,8 @@ boot_alloc(uint32_t n)
   if(n>0)
     {
       result = nextfree;
-      nextfree = ROUNDUP ((char *)nextfree+n, PGSIZE); 
-    if ((uint32_t)nextfree <= KERNBASE || (uint32_t)nextfree >= 0xf0400000)
+      nextfree = ROUNDUP ((char *)nextfree+n, PGSIZE);     
+      if ((uint32_t)nextfree <= KERNBASE || (uint32_t)nextfree >= 0xf0400000)
         panic("Boot_alloc():Out of memory\n"); 
       return result;
     }
@@ -145,13 +145,13 @@ mem_init(void)
 	// Find out how much memory the machine has (npages & npages_basemem).
 	i386_detect_memory(); 
 
-	// Remove this line when you're ready to test this function.
+	//Remove this line when you're ready to test this function.
 	//panic("mem_init: This function is not finished\n");
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
-	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
-	memset(kern_pgdir, 0, PGSIZE);
+	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);  //alociramo direktoriji 
+	memset(kern_pgdir, 0, PGSIZE);              //postavljamo sve vrijednosti na 0
 
 	//////////////////////////////////////////////////////////////////////
 	// Recursively insert PD in itself as a page table, to form
@@ -160,7 +160,8 @@ mem_init(void)
 	// following line.)
 
 	// Permissions: kernel R, user R
-	kern_pgdir[PDX(UVPT)] = PADDR(kern_pgdir) | PTE_U | PTE_P;
+
+  kern_pgdir[PDX(UVPT)] = PADDR(kern_pgdir) | PTE_U | PTE_P;
 
 	//////////////////////////////////////////////////////////////////////
 	// Allocate an array of npages 'struct PageInfo's and store it in 'pages'.
@@ -170,15 +171,25 @@ mem_init(void)
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
 
-    uint32_t size_pages = npages * sizeof(struct PageInfo);
+  //Postavljamo velicinu stranica
+    uint32_t size_pages = npages * sizeof(struct PageInfo);   
+  //Alociramo memoriju za stranice
     pages = (struct PageInfo *) boot_alloc(size_pages);
+  //Postavljamo svu memoriju datu na 0
     memset(pages, 0, size_pages);
 
-	//////////////////////////////////////////////////////////////////////
-	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
-	// LAB 3: Your code here.
+  	//////////////////////////////////////////////////////////////////////
+  	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
+  	// LAB 3: Your code here.
 
-	//////////////////////////////////////////////////////////////////////
+    //Postavljamo velicinu od okruzenja
+    uint32_t size_envs = NENV * sizeof(struct Env);
+    //Alociramo memoriju za okruzenja
+    envs = (struct Env *) boot_alloc(size_envs);
+    //Postavljamo navedenu memoriju na 0
+    memset(envs, 0, size_envs);
+
+  //////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
 	// up the list of free physical pages. Once we've done so, all further
 	// memory management will go through the page_* functions. In
@@ -201,16 +212,18 @@ mem_init(void)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
 
-  size_t size = ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE);
-  boot_map_region(kern_pgdir, UPAGES , size,PADDR(pages), PTE_U | PTE_P);
+  //size_t size = ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE);
+  boot_map_region(kern_pgdir, UPAGES , PTSIZE , PADDR(pages) , PTE_U | PTE_P);
 
-  //////////////////////////////////////////////////////////////////////
-	// Map the 'envs' array read-only by the user at linear address UENVS
-	// (ie. perm = PTE_U | PTE_P).
-	// Permissions:
-	//    - the new image at UENVS  -- kernel R, user R
-	//    - envs itself -- kernel RW, user NONE
-	// LAB 3: Your code here.
+    //////////////////////////////////////////////////////////////////////
+  	// Map the 'envs' array read-only by the user at linear address UENVS
+  	// (ie. perm = PTE_U | PTE_P).
+  	// Permissions:
+  	//    - the new image at UENVS  -- kernel R, user R
+  	//    - envs itself -- kernel RW, user NONE
+  	// LAB 3: Your code here.
+    
+    boot_map_region(kern_pgdir, UENVS , PTSIZE , PADDR(envs), PTE_U | PTE_P);
 
   // Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
@@ -235,7 +248,7 @@ mem_init(void)
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
   
-    size = ~0xffffffff - KERNBASE + 1;
+    size_t size = 0xffffffff - KERNBASE + 1;
     boot_map_region(kern_pgdir, KERNBASE, size, 0 , PTE_P | PTE_W );
 
 	// Check that the initial page directory has been set up correctly.
@@ -309,15 +322,20 @@ page_init(void)
     }
   }
 
-  uint32_t size = sizeof(struct PageInfo) * npages;
-  uint32_t mid = (uint32_t)ROUNDUP(((char*)pages) + size - 0xf0000000, PGSIZE)/PGSIZE;
-  
-  for (i = mid; i < npages; i++) 
-  {
-    pages[i].pp_ref = 0;
-    pages[i].pp_link = page_free_list;
-    page_free_list = &pages[i];
-  }
+  // uint32_t size = sizeof(struct PageInfo) * npages;
+  // uint32_t mid = (uint32_t)ROUNDUP(((char*)pages) + size - 0xf0000000, PGSIZE)/PGSIZE;
+ 
+  // uint32_t size = sizeof(struct Env) * npages;
+  // uint32_t mid = (uint32_t)ROUNDUP(((char*)envs) + size - 0xf0000000, PGSIZE)/PGSIZE;
+
+  i =(uint32_t) (boot_alloc(0)-KERNBASE)/PGSIZE; 
+    while(i < npages)
+    {
+      pages[i].pp_ref = 0;
+      pages[i].pp_link = page_free_list;
+      page_free_list = &pages[i];
+      ++i;
+    }
 
 }
 
@@ -450,8 +468,9 @@ static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
+
   pte_t * temp;
-  uint32_t i=0;;
+  uint32_t i=0;
   while(i < size/PGSIZE)
   { 
     temp = pgdir_walk(pgdir, (void *) va , 1);
@@ -501,9 +520,11 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
   
   pp -> pp_ref++;
 
-  if(*temp & PTE_P)
+  if(*temp & PTE_P){
     page_remove(pgdir,va);
- 
+    tlb_invalidate(pgdir, va);
+  }
+
   *temp = page2pa(pp) | perm | PTE_P;
  	return 0;
 }
