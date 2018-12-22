@@ -65,8 +65,8 @@ trap_init(void)
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
-
-	// Per-CPU setup 
+  
+  // Per-CPU setup 
 	trap_init_percpu();
 }
 
@@ -145,14 +145,16 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
 
-	// Unexpected trap: The user process or the kernel has a bug.
-	print_trapframe(tf);
-	if (tf->tf_cs == GD_KT)
-		panic("unhandled trap in kernel");
-	else {
-		env_destroy(curenv);
-		return;
-	}
+
+  // Unexpected trap: The user process or the kernel has a bug.
+  print_trapframe(tf);
+  if (tf->tf_cs == GD_KT)
+    panic("unhandled trap in kernel");
+  else 
+    {
+      env_destroy(curenv);
+		  return;
+	  }
 }
 
 void
@@ -206,7 +208,7 @@ page_fault_handler(struct Trapframe *tf)
 
 	// LAB 3: Your code here.
 
-	// We've already handled kernel-mode exceptions, so if we get here,
+  // We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
 
 	// Destroy the environment that caused the fault.

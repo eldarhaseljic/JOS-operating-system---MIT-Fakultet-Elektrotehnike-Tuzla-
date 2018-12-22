@@ -118,15 +118,14 @@ env_init(void)
 	// LAB 3: Your code here.
   
     int i;
-    env_free_list = NULL;
+    //env_free_list = NULL;
     for(i=0 ; i<NENV ; ++i)
     {
       envs[i].env_id = 0;
-      envs[i].env_status = ENV_FREE;
-      envs[i].env_link = &envs[i];
+      envs[i].env_link = env_free_list;
+      env_free_list = &envs[i];
     }
-    env_free_list = &envs[0];
-	// Per-CPU part of the initialization
+  // Per-CPU part of the initialization
 	env_init_percpu();
 }
 
@@ -164,7 +163,7 @@ env_init_percpu(void)
 static int
 env_setup_vm(struct Env *e)
 {
-	int i = UTOP / PTSIZE;
+	int i = PDX(KERNBASE);
 	struct PageInfo *p = NULL;
 
 	// Allocate a page for the page directory
@@ -189,16 +188,20 @@ env_setup_vm(struct Env *e)
 
 	// LAB 3: Your code here.
   
-    e -> env_pgdir = (pde_t *)(page2kva(p));
-    
-    while(i<NPDENTRIES - 1)
+    p -> pp_ref++;
+    e -> env_pgdir = (pde_t *)page2kva(p);
+      
+    e -> env_pgdir[PDX(UENVS)] = PTE_ADDR(kern_pgdir[UENVS]) | PTE_P | PTE_U;
+    e -> env_pgdir[PDX(UPAGES)] = PTE_ADDR(kern_pgdir[PDX(UPAGES)]) | PTE_P | PTE_U;
+    e -> env_pgdir[PDX(MMIOBASE)] = PTE_ADDR(kern_pgdir[PDX(MMIOBASE)]) | PTE_P | PTE_W;
+    e -> env_pgdir[PDX(MMIOLIM)] = PTE_ADDR(kern_pgdir[PDX(MMIOLIM)]) | PTE_P | PTE_W;
+
+    while(i<NPDENTRIES)
     {
-      e -> env_pgdir[i] = kern_pgdir[i];
+      e -> env_pgdir[i] = PTE_ADDR(kern_pgdir[i]) | PTE_P | PTE_W;
       ++i;
     }
     
-    ++p -> pp_ref;
-
 	
   // UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
@@ -288,10 +291,13 @@ region_alloc(struct Env *e, void *va, size_t len)
 	//   You should round va down, and round (va + len) up.
 	//   (Watch out for corner-cases!)
  
-    void * begin = (void *) ROUNDDOWN((uint32_t)va,PGSIZE);
-    void * end   = (void *) ROUNDUP((uint32_t)va + len,PGSIZE);
+    uintptr_t begin = ROUNDDOWN((uintptr_t)va,PGSIZE);
+    uintptr_t end   = ROUNDUP((uintptr_t)va + len,PGSIZE);
     int error = -E_INVAL,  set;
-    while(begin != end)
+    len = end - begin;
+    int i=0;
+
+    while(i<len)
     {
       struct PageInfo * page = page_alloc(0);
       if(page == NULL)
@@ -299,15 +305,13 @@ region_alloc(struct Env *e, void *va, size_t len)
         panic("region_alloc: %e\n", error);
       }
 
-      set = page_insert(e -> env_pgdir, page , begin, PTE_P | PTE_U | PTE_W);
+      set = page_insert(e -> env_pgdir, page ,(void *) begin + i,  PTE_U | PTE_W);
       if(set !=0)
       {
         panic("region_alloc: %e\n", error);
       }
-      
-      page -> pp_ref++;
 
-      begin += PGSIZE;
+      i += PGSIZE;
     }
 }
 
@@ -376,30 +380,27 @@ load_icode(struct Env *e, uint8_t *binary)
     if(Header -> e_magic != ELF_MAGIC)
       panic("load_icode: %e\n",error);
   
-    struct Proghdr * PHEAD = (struct Proghdr *) ((uint8_t *) Header + Header -> e_phoff);
+    struct Proghdr * PHEAD = (struct Proghdr *)((uint8_t *)Header + Header -> e_phoff);
     struct Proghdr * EPHEAD = PHEAD + Header -> e_phnum;
+    struct Proghdr * temp = PHEAD;
 
-    lcr3(PADDR(e -> env_pgdir));
     while(PHEAD < EPHEAD)
     {
-      if(PHEAD -> p_type == ELF_PROG_LOAD)
-      {
-        if(PHEAD -> p_memsz >= PHEAD -> p_filesz)
-        {
-          region_alloc(e, (void *)PHEAD -> p_va, PHEAD -> p_memsz);
-          memmove((void *) PHEAD -> p_va                  , 
-                  (uint8_t *) binary + PHEAD -> p_offset  , PHEAD -> p_filesz);
-          
-          memset((void *) PHEAD -> p_va + PHEAD -> p_filesz  ,
-                  0, PHEAD -> p_memsz - PHEAD -> p_filesz);
-        }
-        else
-          panic("load_icode: p_memsz < p_filesz \n");
-      }
+      if(PHEAD -> p_type != ELF_PROG_LOAD)
+        continue;
+      region_alloc(e, (void*)PHEAD -> p_va, PHEAD -> p_memsz);
       ++PHEAD;
     }
 
-    lcr3(PADDR(kern_pgdir));
+    lcr3(PADDR(e -> env_pgdir));
+
+    while(temp<EPHEAD)
+    {
+      memcpy((void*)temp -> p_va, binary + temp -> p_offset, temp->p_filesz);
+      memset((uint8_t*) temp -> p_va + temp -> p_filesz, 0,
+              temp -> p_memsz - temp -> p_filesz);
+      ++temp;
+    }
 
     e -> env_tf.tf_eip = Header -> e_entry;
 
@@ -425,16 +426,15 @@ env_create(uint8_t *binary, enum EnvType type)
 	// LAB 3: Your code here.
   
     int error = -E_BAD_ENV;
-    struct Env * new = NULL;
-    new -> env_parent_id = 0;
-    int napravljeno = env_alloc(&new , new -> env_parent_id);
+    struct Env * new ;
+    int napravljeno = env_alloc(&new , 0);
   
     if(napravljeno != 0)
       panic("env_create():%e", error);
   
     load_icode (new, binary);
     new -> env_type = type;
-
+    new -> env_parent_id = 0;
     new -> env_status = ENV_RUNNABLE;
 }
 

@@ -113,8 +113,8 @@ boot_alloc(uint32_t n)
   if(n>0)
     {
       result = nextfree;
-      nextfree = ROUNDUP ((char *)nextfree+n, PGSIZE);     
-      if ((uint32_t)nextfree <= KERNBASE || (uint32_t)nextfree >= 0xf0400000)
+      nextfree += ROUNDUP (n, PGSIZE);     
+      if ((uint32_t)nextfree >= (KERNBASE | 0x400000))
         panic("Boot_alloc():Out of memory\n"); 
       return result;
     }
@@ -172,22 +172,22 @@ mem_init(void)
 	// Your code goes here:
 
   //Postavljamo velicinu stranica
-    uint32_t size_pages = npages * sizeof(struct PageInfo);   
+    uint32_t size = npages * sizeof(struct PageInfo);   
   //Alociramo memoriju za stranice
-    pages = (struct PageInfo *) boot_alloc(size_pages);
+    pages = (struct PageInfo *) boot_alloc(size);
   //Postavljamo svu memoriju datu na 0
-    memset(pages, 0, size_pages);
+    memset(pages, 0, size);
 
   	//////////////////////////////////////////////////////////////////////
   	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
   	// LAB 3: Your code here.
 
     //Postavljamo velicinu od okruzenja
-    uint32_t size_envs = NENV * sizeof(struct Env);
+    size = NENV * sizeof(struct Env);
     //Alociramo memoriju za okruzenja
-    envs = (struct Env *) boot_alloc(size_envs);
+    envs = (struct Env *) boot_alloc(size);
     //Postavljamo navedenu memoriju na 0
-    memset(envs, 0, size_envs);
+    memset(envs, 0, size);
 
   //////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -212,8 +212,8 @@ mem_init(void)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
 
-  //size_t size = ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE);
-  boot_map_region(kern_pgdir, UPAGES , PTSIZE , PADDR(pages) , PTE_U | PTE_P);
+  size = ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE);
+  boot_map_region(kern_pgdir, UPAGES , size , PADDR(pages) , PTE_U | PTE_P);
 
     //////////////////////////////////////////////////////////////////////
   	// Map the 'envs' array read-only by the user at linear address UENVS
@@ -223,7 +223,8 @@ mem_init(void)
   	//    - envs itself -- kernel RW, user NONE
   	// LAB 3: Your code here.
     
-    boot_map_region(kern_pgdir, UENVS , PTSIZE , PADDR(envs), PTE_U | PTE_P);
+    size = ROUNDUP (NENV * sizeof(struct Env), PGSIZE);
+    boot_map_region(kern_pgdir, UENVS , size , PADDR(envs), PTE_U | PTE_P);
 
   // Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
@@ -248,7 +249,7 @@ mem_init(void)
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
   
-    size_t size = 0xffffffff - KERNBASE + 1;
+    size = 0xffffffff - KERNBASE + 1;
     boot_map_region(kern_pgdir, KERNBASE, size, 0 , PTE_P | PTE_W );
 
 	// Check that the initial page directory has been set up correctly.
