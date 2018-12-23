@@ -188,28 +188,18 @@ env_setup_vm(struct Env *e)
 	// LAB 3: Your code here.
 
 	p->pp_ref ++;
-
 	e->env_pgdir = page2kva(p);
 
-	// UENVS: user R
 	e->env_pgdir[PDX(UENVS)] = PTE_ADDR(kern_pgdir[PDX(UENVS)]) | PTE_P | PTE_U;
-
-	// UPAGES: user R
 	e->env_pgdir[PDX(UPAGES)] = PTE_ADDR(kern_pgdir[PDX(UPAGES)]) | PTE_P | PTE_U;
-
-	// MMIOBASE: kernel RW
 	e->env_pgdir[PDX(MMIOBASE)] = PTE_ADDR(kern_pgdir[PDX(MMIOBASE)]) | PTE_P | PTE_W;
-
-	// MMIOLIM (Kernel stack): kernel RW
 	e->env_pgdir[PDX(MMIOLIM)] = PTE_ADDR(kern_pgdir[PDX(MMIOLIM)]) | PTE_P | PTE_W;
 
-	// KERNEL: kernel RW
 	i = PDX(KERNBASE); 
   while (i < NPDENTRIES) {
 		e->env_pgdir[i] = PTE_ADDR(kern_pgdir[i]) | PTE_P | PTE_W;
 	  ++i;
   }
-
 
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
@@ -317,7 +307,8 @@ region_alloc(struct Env *e, void *va, size_t len)
     {
 	    panic("page_alloc fails.");
     }
-	  r = page_insert(e->env_pgdir, p, (void *) (begin + offset), PTE_U | PTE_W);
+	  
+    r = page_insert(e->env_pgdir, p, (void *) (begin + offset), PTE_U | PTE_W);
 	  
     if (r != 0) 
     {
@@ -563,7 +554,7 @@ env_run(struct Env *e)
 
 	// LAB 3: Your code here.
 
-    if (curenv != NULL && curenv->env_status == ENV_RUNNING) 
+  if (curenv != NULL && curenv->env_status == ENV_RUNNING) 
     {
 	    curenv->env_status = ENV_RUNNABLE;
 	  }
@@ -573,9 +564,8 @@ env_run(struct Env *e)
 	  curenv->env_runs += 1;
     
 	  lcr3(PADDR(e->env_pgdir));
-    
+
 	  env_pop_tf(&e->env_tf);
     
-	  panic("env_run never returns");
 }
 

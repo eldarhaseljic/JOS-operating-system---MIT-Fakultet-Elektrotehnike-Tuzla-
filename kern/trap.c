@@ -63,9 +63,25 @@ void
 trap_init(void)
 {
 	extern struct Segdesc gdt[];
-
+  extern uint32_t hendleri [];
 	// LAB 3: Your code here.
-  
+    
+    int i = 0;
+    while (i < 256)
+    {
+      if( i == T_BRKPT )
+      {
+        SETGATE(idt[T_BRKPT], 0 , GD_KT, hendleri[T_BRKPT], 3);
+      }
+      else if(i == T_SYSCALL)
+      {
+        SETGATE(idt[T_SYSCALL], 0 , GD_KT, hendleri[T_SYSCALL], 3);
+      }
+      else 
+        SETGATE(idt[i], 0 , GD_KT, hendleri[i], 0);
+      ++i;
+    }
+
   // Per-CPU setup 
 	trap_init_percpu();
 }
