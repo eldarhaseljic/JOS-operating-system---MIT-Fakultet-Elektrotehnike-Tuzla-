@@ -309,7 +309,8 @@ page_init(void)
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
-	size_t i; 
+	
+  size_t i; 
   
   for (i = 0; i < npages_basemem; i++)  
   {
