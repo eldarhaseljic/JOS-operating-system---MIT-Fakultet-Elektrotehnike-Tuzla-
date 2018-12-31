@@ -22,9 +22,30 @@ sys_cputs(const char *s, size_t len)
 	// Destroy the environment if not.
 
 	// LAB 3: Your code here.
+    
+  uintptr_t poc = ROUNDDOWN ((uintptr_t)s, PGSIZE);
+  uintptr_t end = ROUNDUP ((uintptr_t)s +len , PGSIZE);
+  pte_t * temp_pte;
+  uint32_t perm_fault = 0;
 
-	// Print the string supplied by the user.
+  while (poc != end)
+  {
+    if((page_lookup(curenv -> env_pgdir, (void *) poc, &temp_pte) == NULL ) || 
+        ((*temp_pte & PTE_U) ==0))
+      
+      goto labela;
+
+    poc += PGSIZE;
+  }
+  // Print the string supplied by the user.
 	cprintf("%.*s", len, s);
+
+  return;
+
+  labela:
+    cprintf("sys_cputs(): env has no premissions to access memory %08x\n", poc);
+    env_destroy(curenv);
+  return;
 }
 
 // Read a character from the system console without blocking.
@@ -270,12 +291,26 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// Call the function corresponding to the 'syscallno' parameter.
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
+  // panic("syscall not implemented");
 
-	panic("syscall not implemented");
+	switch (syscallno) 
+  {  
+    case SYS_cputs:
+      user_mem_assert(curenv , ( void *) a1, a2 , PTE_U);
+      sys_cputs((char*)a1, a2);
+      return 0;
+   
+    case SYS_cgetc:
+      return sys_cgetc();
 
-	switch (syscallno) {
-	default:
-		return -E_INVAL;
-	}
+    case SYS_env_destroy:
+      return sys_env_destroy((envid_t) a1);
+
+    case SYS_getenvid:
+      return sys_getenvid();
+
+	  default:
+		  return -E_INVAL;
+	  }
 }
 
