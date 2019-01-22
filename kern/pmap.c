@@ -345,10 +345,11 @@ page_init(void)
 	// free pages!
 	
   size_t i; 
-  
+  uint32_t mpentry = (uint32_t)(MPENTRY_PADDR) / PGSIZE;
+
   for (i = 0; i < npages_basemem; i++)  
   {
-    if(i==0)
+    if(i == 0 || i == mpentry)
       pages[i].pp_ref = 1;
     else
     {
@@ -367,12 +368,16 @@ page_init(void)
   i =(uint32_t) (boot_alloc(0)-KERNBASE)/PGSIZE; 
     while(i < npages)
     {
-      pages[i].pp_ref = 0;
-      pages[i].pp_link = page_free_list;
-      page_free_list = &pages[i];
-      ++i;
+      if(i == mpentry)
+        pages[i].pp_ref = 1;
+      else
+      {
+        pages[i].pp_ref = 0;
+        pages[i].pp_link = page_free_list;
+        page_free_list = &pages[i];
+        ++i;
+      }
     }
-
 }
 
 //
@@ -646,7 +651,8 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// beginning of the MMIO region.  Because this is static, its
 	// value will be preserved between calls to mmio_map_region
 	// (just like nextfree in boot_alloc).
-	static uintptr_t base = MMIOBASE;
+	
+  static uintptr_t base = MMIOBASE;
 
 	// Reserve size bytes of virtual memory starting at base and
 	// map physical pages [pa,pa+size) to virtual addresses
@@ -680,6 +686,7 @@ mmio_map_region(physaddr_t pa, size_t size)
   
   invlpg(virtualaddr);
   return virtualaddr;
+  
   //  panic("mmio_map_region not implemented");
 }
 
