@@ -351,42 +351,29 @@ page_init(void)
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
 	
-  size_t i; 
+  size_t i = 1; 
   uint32_t mpentry = (uint32_t)(MPENTRY_PADDR) / PGSIZE;
-
-  for (i = 0; i < npages_basemem; i++)  
-  {
-    if(i == 0 || i == mpentry)
-      pages[i].pp_ref = 1;
-    else
-    {
-      pages[i].pp_ref = 0;
-      pages[i].pp_link = page_free_list;
-	    page_free_list = &pages[i];
-    }
-  }
-
+  uint32_t FREE_PAGES = ((uint32_t) boot_alloc(0)-KERNBASE)/PGSIZE; 
+  
   // uint32_t size = sizeof(struct PageInfo) * npages;
   // uint32_t mid = (uint32_t)ROUNDUP(((char*)pages) + size - 0xf0000000, PGSIZE)/PGSIZE;
  
   // uint32_t size = sizeof(struct Env) * npages;
   // uint32_t mid = (uint32_t)ROUNDUP(((char*)envs) + size - 0xf0000000, PGSIZE)/PGSIZE;
 
-  i =(uint32_t) (boot_alloc(0)-KERNBASE)/PGSIZE; 
-    while(i < npages)
+  pages[0].pp_ref = 1;
+  
+  while(i < npages)
+  {
+    if((i < npages_basemem || i >= FREE_PAGES) && i != mpentry)
     {
-      if(i == mpentry)
-        pages[i].pp_ref = 1;
-      else
-      {
-        pages[i].pp_ref = 0;
-        pages[i].pp_link = page_free_list;
-        page_free_list = &pages[i];
-        ++i;
-      }
+      pages[i].pp_ref = 0;
+      pages[i].pp_link = page_free_list;
+      page_free_list = &pages[i];
     }
+    ++i;
+  }
 }
-
 //
 // Allocates a physical page.  If (alloc_flags & ALLOC_ZERO), fills the entire
 // returned physical page with '\0' bytes.  Does NOT increment the reference
