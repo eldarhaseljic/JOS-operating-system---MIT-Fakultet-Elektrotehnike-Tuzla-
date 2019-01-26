@@ -129,9 +129,9 @@ trap_init_percpu(void)
 	//ts.ts_ss0 = GD_KD;
 	//ts.ts_iomb = sizeof(struct Taskstate);
 
-  thiscpu -> cpu_ts.ts_esp0 = KSTACKTOP - cpunum() * (KSTACKTOP + KSTKGAP);
+  thiscpu -> cpu_ts.ts_esp0 = (uintptr_t)(percpu_kstacks[cpunum()] + KSTKSIZE); 
 	thiscpu -> cpu_ts.ts_ss0 = GD_KD;
-	//thiscpu -> cpu_ts.ts_iomb = sizeof(struct Taskstate);
+	thiscpu -> cpu_ts.ts_iomb = sizeof(struct Taskstate);
 
 	// Initialize the TSS slot of the gdt.
 	
@@ -140,7 +140,7 @@ trap_init_percpu(void)
 	//gdt[GD_TSS0 >> 3].sd_s = 0;
   
   gdt[(GD_TSS0 >> 3) + cpunum()] = 
-    SEG16(STS_T32A, (uint32_t) (&thiscpu -> cpu_ts), sizeof(struct Taskstate) - 1, 0);
+    SEG16(STS_T32A, (uint32_t) (&(thiscpu -> cpu_ts)), sizeof(struct Taskstate) - 1, 0);
 	gdt[(GD_TSS0 >> 3) + cpunum()].sd_s = 0;
 
 

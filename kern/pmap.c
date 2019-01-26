@@ -307,11 +307,11 @@ mem_init_mp(void)
   
   for(int i=0; i<NCPU ; ++i)
   {
-    uintptr_t start = KSTACKTOP - i * (KSTKSIZE + KSTKGAP) - KSTKSIZE; 
+    uintptr_t start = KSTACKTOP - i * (KSTKSIZE + KSTKGAP) - KSTKSIZE;
+    //neke mi stvari ovdje nisu jasne al haj nek stane ovako 
     boot_map_region(kern_pgdir, start , KSTKSIZE, 
                     PADDR(percpu_kstacks[i]), PTE_P | PTE_W);
   }
-
 }
 
 // --------------------------------------------------------------
@@ -351,7 +351,7 @@ page_init(void)
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
 	
-  size_t i = 1; 
+  size_t i = 1 ; 
   uint32_t mpentry = (uint32_t)(MPENTRY_PADDR) / PGSIZE;
   uint32_t FREE_PAGES = ((uint32_t) boot_alloc(0)-KERNBASE)/PGSIZE; 
   
@@ -362,7 +362,7 @@ page_init(void)
   // uint32_t mid = (uint32_t)ROUNDUP(((char*)envs) + size - 0xf0000000, PGSIZE)/PGSIZE;
 
   pages[0].pp_ref = 1;
-  
+
   while(i < npages)
   {
     if((i < npages_basemem || i >= FREE_PAGES) && i != mpentry)
@@ -370,7 +370,7 @@ page_init(void)
       pages[i].pp_ref = 0;
       pages[i].pp_link = page_free_list;
       page_free_list = &pages[i];
-    }
+    } 
     ++i;
   }
 }
@@ -668,16 +668,16 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Your code here:
   
   void * virtualaddr = (void *) base;
-  size_t length = ROUNDUP(size, PGSIZE);
+  size_t length = (size_t) ROUNDUP(size, PGSIZE);
   
-  if( base + length > MMIOLIM )
+  if( base + length >= MMIOLIM )
     panic("mmio_map_region() : out of memory \n");
 
   boot_map_region( kern_pgdir, (uintptr_t) virtualaddr, length, pa, 
                   PTE_P | PTE_W | PTE_PCD | PTE_PWT );
-
+ 
   base += length;
-  
+
   invlpg(virtualaddr);
   return virtualaddr;
   

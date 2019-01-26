@@ -71,16 +71,18 @@ sys_getenvid(void)
 static int
 sys_env_destroy(envid_t envid)
 {
-	int r;
-	struct Env *e;
 
-	if ((r = envid2env(envid, &e, 1)) < 0)
-		return r;
-	if (e == curenv)
-		cprintf("[%08x] exiting gracefully\n", curenv->env_id);
+	struct Env *temp;
+  int success = envid2env(envid, &temp, 1);
+
+	if (success < 0) return success;
+	
+  if (temp == curenv)
+		cprintf("[%08x] exiting gracefully\n", curenv -> env_id);
 	else
-		cprintf("[%08x] destroying %08x\n", curenv->env_id, e->env_id);
-	env_destroy(e);
+		cprintf("[%08x] destroying %08x\n", curenv -> env_id, temp -> env_id);
+	
+  env_destroy(temp);
 	return 0;
 }
 
@@ -107,16 +109,17 @@ sys_exofork(void)
 	// LAB 4: Your code here.
   
   struct Env * new_env;
-  envid_t check_alloc;
-  if( ( check_alloc = env_alloc( &new_env , curenv->env_id  )  )  )
-    return check_alloc;
-  new_env->env_tf = curenv->env_tf;
+  envid_t check_alloc = env_alloc(&new_env, curenv -> env_id);
   
-  new_env->env_tf.tf_regs.reg_eax = 0;
-  new_env->env_status = ENV_NOT_RUNNABLE;
-    return new_env->env_id;
+  if( check_alloc )  return check_alloc;
+  
+  new_env -> env_tf = curenv -> env_tf;
+  new_env -> env_tf.tf_regs.reg_eax = 0;
+  new_env -> env_status = ENV_NOT_RUNNABLE;
+  
+  return new_env->env_id;
 	
-    //panic("sys_exofork not implemented");
+  //panic("sys_exofork not implemented");
 }
 
 // Set envid's env_status to status, which must be ENV_RUNNABLE
@@ -138,9 +141,13 @@ sys_env_set_status(envid_t envid, int status)
 	// LAB 4: Your code here.
   
   if( status != ENV_NOT_RUNNABLE && status != ENV_RUNNABLE  ) return -E_INVAL;
+  
   struct Env * env;
-  if( envid2env( envid , &env , 1  )  ) return -E_BAD_ENV;
-  env->env_status = status;
+  int success = envid2env(envid , &env, 1);
+
+  if( success ) return -E_BAD_ENV;
+  
+  env -> env_status = status;
   return 0;
 
   //panic("sys_env_set_status not implemented");
@@ -158,8 +165,17 @@ static int
 sys_env_set_pgfault_upcall(envid_t envid, void *func)
 {
 	// LAB 4: Your code here.
+  
+  struct Env * temp;
+  int success = envid2env(envid, &temp, 1);
 
-  panic("sys_env_set_pgfault_upcall not implemented");
+  if(success < 0) return success;
+
+  temp -> env_pgfault_upcall = func;
+
+  return 0;
+
+  // panic("sys_env_set_pgfault_upcall not implemented");
 }
 
 // Allocate a page of memory and map it at 'va' with permission
@@ -195,15 +211,22 @@ sys_page_alloc(envid_t envid, void *va, int perm)
   
   if( ( perm & ( PTE_P | PTE_U  )  ) != ( PTE_P | PTE_U  )  
       ||  ( perm & ~PTE_SYSCALL  )  ) return -E_INVAL;
+  
   if( (uint32_t)va >= UTOP || (uint32_t)va % PGSIZE  ) return -E_INVAL;
   
-  if( envid2env( envid , &env , 1  )  ) return -E_BAD_ENV;
-  if( !( page = page_alloc(ALLOC_ZERO)  )  ) return -E_NO_MEM;
-  if( page_insert( env->env_pgdir , page , va ,  perm  )   ){
+  int success = envid2env (envid, &env , 1);
+  if( success ) return -E_BAD_ENV;
+  
+  page = page_alloc(ALLOC_ZERO);
+  if( !page )return -E_NO_MEM;
+  
+  if( page_insert( env->env_pgdir , page , va ,  perm  )   )
+  {
     page_decref(page);
     return -E_NO_MEM;             
   }
-    return 0;
+  
+  return 0;
 	
   //panic("sys_page_alloc not implemented");
 }
@@ -224,6 +247,7 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 //	-E_INVAL if (perm & PTE_W), but srcva is read-only in srcenvid's
 //		address space.
 //	-E_NO_MEM if there's no memory to allocate any necessary page tables.
+
 static int
 sys_page_map(envid_t srcenvid, void *srcva,
 	     envid_t dstenvid, void *dstva, int perm)
@@ -267,6 +291,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
 //	-E_BAD_ENV if environment envid doesn't currently exist,
 //		or the caller doesn't have permission to change envid.
 //	-E_INVAL if va >= UTOP, or va is not page-aligned.
+
 static int
 sys_page_unmap(envid_t envid, void *va)
 {
@@ -278,7 +303,8 @@ sys_page_unmap(envid_t envid, void *va)
 
   if( (uint32_t)va >= UTOP || (uint32_t)va % PGSIZE  ) return -E_INVAL;
   
-  if( envid2env( envid , &env , 1  )  ) return -E_BAD_ENV;
+  int success = envid2env(envid, &env, 1);
+  if( success ) return -E_BAD_ENV;
   
   page_remove( env->env_pgdir , va  );
   return 0;
@@ -324,6 +350,7 @@ sys_page_unmap(envid_t envid, void *va)
 //		current environment's address space.
 //	-E_NO_MEM if there's not enough memory to map srcva in envid's
 //		address space.
+
 static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
@@ -342,6 +369,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 // return 0 on success.
 // Return < 0 on error.  Errors are:
 //	-E_INVAL if dstva < UTOP but dstva is not page-aligned.
+
 static int
 sys_ipc_recv(void *dstva)
 {
@@ -393,6 +421,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
     
     case SYS_env_set_status:
       return sys_env_set_status((envid_t)a1, (int)a2);
+    
+    case SYS_env_set_pgfault_upcall:
+      return sys_env_set_pgfault_upcall((envid_t)a1, (void *)a2);
 
     default:
 		  return -E_INVAL;
