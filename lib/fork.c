@@ -44,9 +44,9 @@ pgfault(struct UTrapframe *utf)
   if(r < 0)
     panic("pgfault(): sys_page_alloc error\n");
 
-  memcpy(PFTEMP, ROUNDOWN(addr, PGSIZE), PGSIZE);
+  memcpy(PFTEMP, ROUNDDOWN(addr, PGSIZE), PGSIZE);
 
-  r = sys_page_map(0, (void *)PFTEMP, 0 , ROUNDOWN(addr,PGSIZE), PTE_U | PTE_W | PTE_P);
+  r = sys_page_map(0, (void *)PFTEMP, 0 , ROUNDDOWN(addr,PGSIZE), PTE_U | PTE_W | PTE_P);
 
   if(r < 0)
     panic("pgfault(): sys_page_map error\n");
@@ -78,7 +78,28 @@ duppage(envid_t envid, unsigned pn)
 	int r;
 
 	// LAB 4: Your code here.
-	panic("duppage not implemented");
+  void * addr = (void *) (pn * PGSIZE);
+  if((uvpt[pn] & PTE_COW) || (uvpt[pn] & PTE_W))
+  {
+    r = sys_page_map(0, addr , envid , addr , PTE_COW | PTE_U | PTE_P);
+    
+    if(r < 0)
+      panic("duppage(): sys_page_map error\n");
+
+    r = sys_page_map(0, addr , 0 , addr , PTE_COW | PTE_U | PTE_P);
+
+    if(r < 0)
+      panic("duppage(): sys_page_map error\n");
+  }
+  else
+  { 
+    r = sys_page_map(0, addr , envid , addr , PTE_U | PTE_P);
+
+    if(r < 0)
+      panic("duppage(): sys_page_map error\n");
+  }
+  
+	//panic("duppage not implemented");
 	return 0;
 }
 
