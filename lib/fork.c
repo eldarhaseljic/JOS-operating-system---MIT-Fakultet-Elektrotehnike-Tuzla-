@@ -25,6 +25,11 @@ pgfault(struct UTrapframe *utf)
 	//   (see <inc/memlayout.h>).
 
 	// LAB 4: Your code here.
+  if(!((err & FEC_WR) && (uvpt[PGNUM(addr)] & PTE_COW)
+        && (uvpd[PDX(addr)] & PTE_P) 
+        && (uvpt[PGNUM(addr)] & PTE_P)))
+
+    panic("pgfault(): error not copy on write\n");
 
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
@@ -34,7 +39,26 @@ pgfault(struct UTrapframe *utf)
 
 	// LAB 4: Your code here.
 
-	panic("pgfault not implemented");
+  r = sys_page_alloc(0,(void *)PFTEMP, PTE_U | PTE_W | PTE_P);
+
+  if(r < 0)
+    panic("pgfault(): sys_page_alloc error\n");
+
+  memcpy(PFTEMP, ROUNDOWN(addr, PGSIZE), PGSIZE);
+
+  r = sys_page_map(0, (void *)PFTEMP, 0 , ROUNDOWN(addr,PGSIZE), PTE_U | PTE_W | PTE_P);
+
+  if(r < 0)
+    panic("pgfault(): sys_page_map error\n");
+
+  r = sys_page_unmap (0, (void *) PFTEMP);
+
+  if(r < 0)
+    panic("pgfault(): sys_page_unmap error\n");
+
+  return;
+
+  //panic("pgfault not implemented");
 }
 
 //
