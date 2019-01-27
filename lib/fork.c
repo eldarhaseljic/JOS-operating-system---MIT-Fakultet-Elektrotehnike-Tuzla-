@@ -124,50 +124,43 @@ fork(void)
 {
 	// LAB 4: Your code here.
   
-  envid_t envid;
-  uint32_t addr;
-  int success;
+  extern void _pgfault_upcall(void);
 
   set_pgfault_handler(pgfault);
-
+  
   //KREIRAMO NOVO DIJETE
-  envid = sys_exofork();
-
-  if(envid < 0)
-    panic("fork(): error sys_exofork: %e", envid);
-
-  if(envid == 0)
+  envid_t envid = sys_exofork();
+  
+  if (envid < 0)
+    panic("sys_exofork: %e", envid);
+  
+  if (envid == 0) 
   {
     thisenv = &envs[ENVX(sys_getenvid())];
-    return 0;
+    return 0;                
   }
-
-  addr = 0;
   
-  while(addr < USTACKTOP)
+  int i, j, pn, r;
+  
+  for (i = 0; i < NPDENTRIES; i++) 
   {
-    if(    ( uvpd[PDX(addr)]   & PTE_P) 
-        && ( uvpt[PGNUM(addr)] & PTE_P) 
-        && ( uvpt[PGNUM(addr)] & PTE_U))
-        
-      duppage(envid, PGNUM(addr));
-    
-    addr += PGSIZE;
+    if (uvpd[i] & PTE_U) 
+    {
+      for (j = 0; j < NPTENTRIES; j++) 
+      {
+        pn = (i << 10) + j;
+        if ((uvpt[pn] & PTE_U) && pn*PGSIZE < UTOP && pn != PGNUM(UXSTACKTOP-1)) 
+          duppage(envid, pn);
+      }          
+    }          
   }
-
-  success = sys_page_alloc(envid , (void *)(UXSTACKTOP - PGSIZE), PTE_U | PTE_W | PTE_P);
-
-  if(success < 0)
-    panic("fork() : sys_page_alloc() error : %e", success);
-
-  extern void _pgfault_upcall();
+ 
+  if ((r = sys_page_alloc(envid, (void *)(UXSTACKTOP-PGSIZE),PTE_P | PTE_W | PTE_U)) < 0)
+    panic("sys_page_alloc: %e", r);
   sys_env_set_pgfault_upcall(envid, _pgfault_upcall);
 
-  success = sys_env_set_status(envid, ENV_RUNNABLE);
-
-  if(success < 0)
-    panic("fork() : sys_env_set_status error : %e", success);
-
+  if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0)
+    panic("sys_env_set_status: %e", r); 
   return envid;
 	//panic("fork not implemented");
 }
