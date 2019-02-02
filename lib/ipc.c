@@ -64,7 +64,8 @@ ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
       panic("not E_IPC_NOT_RECV, %e", ret);
     sys_yield();
   }
-
+  
+  return;
   //panic("ipc_send not implemented");
 }
 

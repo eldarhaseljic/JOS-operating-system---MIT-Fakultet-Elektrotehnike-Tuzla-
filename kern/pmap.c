@@ -665,6 +665,7 @@ mmio_map_region(physaddr_t pa, size_t size)
 	//
 	// Hint: The staff solution uses boot_map_region.
 	//
+  // LAB 4
 	// Your code here:
   
   void * virtualaddr = (void *) base;

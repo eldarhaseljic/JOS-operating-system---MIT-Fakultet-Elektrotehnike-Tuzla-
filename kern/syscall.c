@@ -111,7 +111,7 @@ sys_exofork(void)
   struct Env * new_env;
   envid_t check_alloc = env_alloc(&new_env, curenv -> env_id);
   
-  if( check_alloc )  return check_alloc;
+  if( check_alloc < 0 )  return -E_NO_FREE_ENV;
   
   new_env -> env_tf = curenv -> env_tf;
   new_env -> env_tf.tf_regs.reg_eax = 0;
@@ -145,7 +145,7 @@ sys_env_set_status(envid_t envid, int status)
   struct Env * env;
   int success = envid2env(envid , &env, 1);
 
-  if( success ) return -E_BAD_ENV;
+  if( success < 0) return -E_BAD_ENV;
   
   env -> env_status = status;
   return 0;
@@ -167,7 +167,7 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
 	// LAB 4: Your code here.
   
   struct Env * temp;
-  int success = envid2env(envid, &temp, 1);
+  envid_t success = envid2env(envid, &temp, 1);
 
   if(success < 0) return success;
 
@@ -214,8 +214,8 @@ sys_page_alloc(envid_t envid, void *va, int perm)
   
   if( (uint32_t)va >= UTOP || (uint32_t)va % PGSIZE  ) return -E_INVAL;
   
-  int success = envid2env (envid, &env , 1);
-  if( success ) return -E_BAD_ENV;
+  envid_t success = envid2env (envid, &env , 1);
+  if( success < 0 ) return -E_BAD_ENV;
   
   page = page_alloc(ALLOC_ZERO);
   if( !page )return -E_NO_MEM;
@@ -303,8 +303,8 @@ sys_page_unmap(envid_t envid, void *va)
 
   if( (uint32_t)va >= UTOP || (uint32_t)va % PGSIZE  ) return -E_INVAL;
   
-  int success = envid2env(envid, &env, 1);
-  if( success ) return -E_BAD_ENV;
+  envid_t success = envid2env(envid, &env, 1);
+  if( success < 0) return -E_BAD_ENV;
   
   page_remove( env->env_pgdir , va  );
   return 0;
